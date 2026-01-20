@@ -1,0 +1,10 @@
+# Bazel
+bazel-*
+.bazel-cache/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~

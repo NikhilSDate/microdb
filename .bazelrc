@@ -1,0 +1,12 @@
+# Use Bzlmod (required for BCR)
+common --enable_bzlmod
+
+# C++ standard
+build --cxxopt=-std=c++23
+build --host_cxxopt=-std=c++23
+
+# Compiler settings
+build --cxxopt=-Wall
+build --cxxopt=-Wextra
+
+--repo_env=CC=clang

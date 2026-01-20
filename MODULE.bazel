@@ -1,0 +1,12 @@
+module(
+    name = "microdb",
+    version = "0.1.0",
+)
+
+bazel_dep(name = "catch2", version = "3.5.2")
+bazel_dep(name = "hedron_compile_commands", dev_dependency = True)
+git_override(
+    module_name = "hedron_compile_commands",
+    remote = "https://github.com/eugeneo/bazel-compile-commands-extractor.git",
+    commit = "844279a911d0a0adca480b299799f03f65290cce",
+)
