@@ -20,6 +20,7 @@ class LSMKVStore {
         LSMKVStore(const KVStoreConfig& config);
         std::optional<std::string> get(std::string k);
         std::string set(std::string k, std::string v);
+        void remove(std::string k);
         ~LSMKVStore();
     private:
         std::string directory_;

@@ -33,6 +33,9 @@ std::optional<std::string> LSMKVStore::get(std::string k) {
         }
         return std::nullopt;
     }
+    if (memtable_.at(k).length() == 0) {
+        return std::nullopt;
+    }
     return memtable_.at(k);
 }
 
@@ -47,6 +50,11 @@ std::string LSMKVStore::set(std::string k, std::string v) {
         this->memtable_.clear();
     }
     return v;
+}
+
+void LSMKVStore::remove(std::string k) {
+    // set a tombstone value
+    set(k, "");
 }
 
 LSMKVStore::~LSMKVStore() {
