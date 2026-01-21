@@ -20,9 +20,11 @@ class LSMKVStore {
         LSMKVStore(const KVStoreConfig& config);
         std::optional<std::string> get(std::string k);
         std::string set(std::string k, std::string v);
+        ~LSMKVStore();
     private:
         std::string directory_;
         KVStoreConfig config_;
-        std::unique_ptr<std::map<std::string, std::string>> memtable_;
+        std::map<std::string, std::string> memtable_;
         std::vector<SSTable> sstables_;
+        size_t next_sstable_id;
 };

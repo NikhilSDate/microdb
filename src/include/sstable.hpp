@@ -11,11 +11,11 @@
 
 class File {
 public:
+    static File create(std::filesystem::path, const std::span<std::byte> data);
     static File open(std::filesystem::path path);
 
-    static File create(std::filesystem::path, const std::span<std::byte> data);
-
-    void read(std::filesystem::path path, std::span<std::byte> buf, size_t offset, size_t len);
+    void read(std::span<std::byte> buf, size_t offset, size_t len);
+    size_t size() const;
 
     // Default constructor
     File() = default;
@@ -47,7 +47,8 @@ class Offsets {
         static Offsets from_raw(std::span<std::byte> raw);
         static Offsets from_memtable(const std::map<std::string, std::string>& memtable);
         std::vector<std::byte> to_raw() const;
-        std::pair<size_t, size_t> at(size_t idx) const;
+        std::pair<size_t, size_t> at(size_t idx) const; 
+        size_t num_entries() const { return key_offsets_.size(); };
     private:
         std::vector<size_t> key_offsets_;
         std::vector<size_t> value_offsets_;
@@ -56,10 +57,12 @@ class Offsets {
 class SparseIndex {
     public:
         static SparseIndex from_raw(std::span<std::byte> raw);
-        static SparseIndex from_memtable_and_offsets(const std::map<std::string, std::string>& memtable, const Offsets& offsets);
+        static SparseIndex from_memtable_and_offsets(const std::map<std::string, std::string>& memtable, const Offsets& offsets);         
         std::vector<std::byte> to_raw() const;
+        std::pair<std::size_t, std::optional<std::size_t>> lookup_key(std::string key) const;
+    private:
         std::map<std::string, size_t> index_; // this stores mappings from key to index within the file
-};
+    };
 
 class SSTable {
 public:
