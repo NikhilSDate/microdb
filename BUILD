@@ -8,6 +8,7 @@ cc_binary(
         "src/sstable.cpp",
         "src/include/db.hpp",
         "src/include/sstable.hpp",
+        "src/include/utils.hpp"
     ],
     includes = ["src/include"],
 )

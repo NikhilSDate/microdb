@@ -28,4 +28,5 @@ class LSMKVStore {
         std::map<std::string, std::string> memtable_;
         std::vector<SSTable> sstables_;
         size_t next_sstable_id;
+        Channel<std::map<std::string, std::string> 
 };
