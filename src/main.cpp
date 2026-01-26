@@ -1,4 +1,4 @@
-#include <cstdio>
+    #include <cstdio>
 #include <filesystem>
 #include <format>
 #include <iostream>
@@ -22,7 +22,7 @@ int main() {
         for (size_t i = 0; i < 50; i++) {
             auto key = std::format("key{:03d}", i);
             auto value = std::format("value{:03d}", i);
-            db.set(key, value);
+            db.put(key, value);
         }
         std::println("Wrote 50 key-value pairs");
     }

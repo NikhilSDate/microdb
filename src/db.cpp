@@ -4,15 +4,21 @@
 #include <memory>
 #include <optional>
 #include <stdexcept>
+#include <ranges>
 
 LSMKVStore::LSMKVStore(const KVStoreConfig& config)
-    : config_{config}, next_sstable_id{0} {
+    : config_{config}{
+    state_ = std::make_shared<LSMStoreState>();
+
     if (std::filesystem::exists(config_.directory_)) {
         // read all SSTables
         for (auto const& entry: std::filesystem::directory_iterator(config_.directory_)) {
             auto path = entry.path();
             // assuming the database is being used correctly, path should be an SSTable
-            sstables_.push_back(SSTable::from_file(path));
+            SSTable table = SSTable::from_file(path);
+            size_t id = table.id();
+            state_->sstables_[id] = std::move(table);
+            state_->next_sstable_id = std::max(state_->next_sstable_id, table.id() + 1);
         }
     } else {
         if (!std::filesystem::create_directories(config_.directory_)) {
@@ -22,9 +28,15 @@ LSMKVStore::LSMKVStore(const KVStoreConfig& config)
 }
 
 std::optional<std::string> LSMKVStore::get(std::string k) {
-    if (!memtable_.contains(k)) {
+    // take read lock and read snapshot
+    state_lock_.lock_shared();
+    auto snapshot = state_;
+    state_lock_.unlock_shared();
+
+    if (!snapshot->memtable_.contains(k)) {
         // search SSTables
-        for (auto& sstable: this->sstables_) {
+        // iterate in reverse to get more recent tables first
+        for (auto& [_, sstable]: snapshot->sstables_ | std::views::reverse) {
             auto res = sstable.get(k);
             // tombstone is 0-length value
             if (res.has_value() && res.value().length() > 0) {
@@ -33,13 +45,13 @@ std::optional<std::string> LSMKVStore::get(std::string k) {
         }
         return std::nullopt;
     }
-    if (memtable_.at(k).length() == 0) {
+    if (snapshot->memtable_.at(k).length() == 0) {
         return std::nullopt;
     }
-    return memtable_.at(k);
+    return snapshot->memtable_.at(k);
 }
 
-std::string LSMKVStore::set(std::string k, std::string v) {
+std::string LSMKVStore::put(std::string k, std::string v) {
     memtable_[k] = v;
     if (memtable_.size() > this->config_.memtable_threshold_) {
         // need to flush memtable to SSTable

@@ -73,6 +73,7 @@ SSTable
 SSTable::from_memtable(size_t id, std::filesystem::path directory,
                        const std::map<std::string, std::string> &memtable) {
   SSTable sstable;
+  sstable.id_ = id;
   auto filename = std::format("sstable-{0}.sst", id);
   std::filesystem::path file_path = directory.append(filename);
 
@@ -118,7 +119,7 @@ SSTable SSTable::from_file(std::filesystem::path filepath) {
   sstable.file.read(file_index_bytes, file_size - file_index_size,
                     file_index_size);
   sstable.file_index_ = FileIndex::from_raw(file_index_bytes);
-  sstable.id = sstable.file_index_.id_;
+  sstable.id_ = sstable.file_index_.id_;
 
   // Read Offsets
   size_t offsets_size =

@@ -67,6 +67,7 @@ class SparseIndex {
 class SSTable {
 public:
     std::optional<std::string> get(std::string k);
+    size_t id() const { return id_; }
     static SSTable from_memtable(size_t id, std::filesystem::path directory, const std::map<std::string, std::string>& memtable);
     static SSTable from_file(std::filesystem::path filepath);
 
@@ -82,7 +83,7 @@ public:
     SSTable& operator=(SSTable&&) = default;
 
 private:
-    size_t id;
+    size_t id_;
     File file;
     FileIndex file_index_;
     SparseIndex sparse_index_;

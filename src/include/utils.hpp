@@ -5,7 +5,8 @@
 // unbounded channel
 template <typename T>
 class Channel {
-        void send(T val);
+        void send(T&& val);
+        void send(const T& val);
         T receive();
     private:
         std::queue<T> queue_;
@@ -14,10 +15,17 @@ class Channel {
 };
 
 template<typename T>
-void Channel<T>::send(T val) {
+void Channel<T>::send(T&& val) {
     std::lock_guard<std::mutex> g(m_);
     queue_.push(std::move(val));
-    nonempty_.notify_all();
+    nonempty_.notify_one();
+}
+
+template<typename T>
+void Channel<T>::send(const T& val) {
+    std::lock_guard<std::mutex> g(m_);
+    queue_.push(val);
+    nonempty_.notify_one();
 }
 
 template<typename T>
@@ -26,5 +34,5 @@ T Channel<T>::receive() {
     nonempty_.wait(g, [&]() {return !queue_.empty(); });
     T data = std::move(queue_.front());
     queue_.pop();
-    return std::move(data);
+    return data;
 }
