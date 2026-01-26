@@ -1,3 +1,4 @@
+#include <mutex>
 #include <shared_mutex>
 #include <string>
 #include <map>
@@ -16,9 +17,20 @@ struct KVStoreConfig {
     }
 };
 
+class MemTable {
+        // these methods are thread-safe
+    public:
+        std::optional<std::string> get(const std::string& k);
+        void put(const std::string& k, const std::string& v);
+    private:
+        std::shared_mutex lock_;
+        std::map<std::string, std::string> memtable_;
+};
+
 struct LSMStoreState {
+    std::shared_mutex lock; // this is required since we can't guarantee lock-free access to the memtable
     LSMStoreState(): next_sstable_id{0} {};
-    std::map<std::string, std::string> memtable_;
+    MemTable memtable_;
     std::map<size_t, SSTable> sstables_;
     size_t next_sstable_id;
 };
@@ -35,6 +47,5 @@ class LSMKVStore {
         KVStoreConfig config_;
         Channel<bool> flush_channel_;
         std::shared_mutex state_lock_;
-        std::shared_mutex memtable_lock_;
         std::shared_ptr<LSMStoreState> state_;
 };

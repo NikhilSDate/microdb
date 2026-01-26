@@ -3,6 +3,7 @@
 #include <print>
 #include <memory>
 #include <optional>
+#include <shared_mutex>
 #include <stdexcept>
 #include <ranges>
 
@@ -33,7 +34,8 @@ std::optional<std::string> LSMKVStore::get(std::string k) {
     auto snapshot = state_;
     state_lock_.unlock_shared();
 
-    if (!snapshot->memtable_.contains(k)) {
+    auto result = snapshot->memtable_.get(k);
+    if (!result.has_value()) {
         // search SSTables
         // iterate in reverse to get more recent tables first
         for (auto& [_, sstable]: snapshot->sstables_ | std::views::reverse) {
@@ -45,10 +47,10 @@ std::optional<std::string> LSMKVStore::get(std::string k) {
         }
         return std::nullopt;
     }
-    if (snapshot->memtable_.at(k).length() == 0) {
+    if (result.value().length() == 0) {
         return std::nullopt;
     }
-    return snapshot->memtable_.at(k);
+    return result.value();
 }
 
 std::string LSMKVStore::put(std::string k, std::string v) {
@@ -66,7 +68,7 @@ std::string LSMKVStore::put(std::string k, std::string v) {
 
 void LSMKVStore::remove(std::string k) {
     // set a tombstone value
-    set(k, "");
+    this->put(k, "");
 }
 
 LSMKVStore::~LSMKVStore() {
