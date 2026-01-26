@@ -20,11 +20,14 @@ struct KVStoreConfig {
 class MemTable {
         // these methods are thread-safe
     public:
+        MemTable(): size_{0} {};
         std::optional<std::string> get(const std::string& k);
         void put(const std::string& k, const std::string& v);
+        void size();
     private:
         std::shared_mutex lock_;
         std::map<std::string, std::string> memtable_;
+        size_t size_;
 };
 
 struct LSMStoreState {

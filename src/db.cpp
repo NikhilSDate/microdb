@@ -1,11 +1,30 @@
 #include "include/db.hpp"
 #include <filesystem>
+#include <mutex>
 #include <print>
 #include <memory>
 #include <optional>
 #include <shared_mutex>
 #include <stdexcept>
 #include <ranges>
+
+std::optional<std::string> MemTable::get(const std::string& k) {
+    std::shared_lock<std::shared_mutex> g{lock_};
+    if (memtable_.contains(k)) {
+        return memtable_.at(k);
+    }
+    return std::nullopt;
+}
+
+void MemTable::put(const std::string& k, const std::string& v) {
+    std::unique_lock<std::shared_mutex> g{lock_};
+    if (memtable_.contains(k)) {
+        size_ = size_ + (v.size() - memtable_.at(k).size());
+    } else {
+        size_ = size_ + k.size() + v.size();
+    }
+    memtable_[k] = v;
+}
 
 LSMKVStore::LSMKVStore(const KVStoreConfig& config)
     : config_{config}{
