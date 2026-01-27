@@ -14,33 +14,53 @@
 
 File File::create(std::filesystem::path path, const std::span<std::byte> data) {
   File file;
-  file.f.open(path, std::ios::in | std::ios::out | std::ios::binary |
-                        std::ios::trunc);
-  if (!file.f.is_open()) {
+  file.path_ = path;
+  file.f_.open(path);
+  if (!file.f_.is_open()) {
     throw std::runtime_error("Failed to create file: " + path.string());
   }
-
+  std::fstream write_stream;
+  write_stream.open(path);
   // Write the data to the file
-  file.f.write(reinterpret_cast<const char *>(data.data()), data.size());
-  file.f.flush();
+  write_stream.write(reinterpret_cast<const char *>(data.data()), data.size());
+  write_stream.flush();
 
   // Reset to beginning
-  file.f.seekg(0);
+  file.f_.seekg(0);
 
   return file;
 }
 
 File File::open(std::filesystem::path path) {
   File file;
-  file.f.open(path, std::ios::in | std::ios::binary);
-  if (!file.f.is_open()) {
+  file.path_ = path;
+  file.f_.open(path, std::ios::in | std::ios::binary);
+  if (!file.f_.is_open()) {
     throw std::runtime_error("Failed to open file: " + path.string());
   }
   return file;
 }
 
+File::File(const File& other): path_{other.path_} {
+  f_.open(path_);
+  if (!f_.is_open()) {
+    throw std::runtime_error("Failed to open file: " + path_.string());
+  }
+}
+
+File& File::operator=(File other) {
+  std::swap(this->path_, other.path_);
+  std::swap(this->f_, other.f_);
+  return *this;
+}
+
+File::File(File&& other): File() {
+  std::swap(this->path_, other.path_);
+  std::swap(this->f_, other.f_);
+}
+
 size_t File::size() const {
-  auto f_mut = const_cast<std::fstream *>(&f);
+  auto f_mut = const_cast<std::ifstream *>(&f_);
   auto current_pos = f_mut->tellg();
   f_mut->seekg(0, std::ios::end);
   auto file_size = static_cast<size_t>(f_mut->tellg());
@@ -49,14 +69,14 @@ size_t File::size() const {
 }
 
 void File::read(std::span<std::byte> buf, size_t offset, size_t len) {
-  if (!f.is_open()) {
+  if (!f_.is_open()) {
     throw std::runtime_error("File is not open");
   }
 
   if (len > buf.size()) {
     throw std::invalid_argument("Buffer too small for requested read length");
   }
-  auto f_mut = const_cast<std::fstream *>(&f);
+  auto f_mut = const_cast<std::ifstream *>(&f_);
   // Seek to offset
   f_mut->seekg(offset);
 

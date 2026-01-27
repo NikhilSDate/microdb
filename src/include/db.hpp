@@ -23,7 +23,7 @@ class MemTable {
         MemTable(): size_{0} {};
         std::optional<std::string> get(const std::string& k);
         void put(const std::string& k, const std::string& v);
-        void size();
+        size_t size_bytes() { return size_; };
     private:
         std::shared_mutex lock_;
         std::map<std::string, std::string> memtable_;
@@ -31,9 +31,9 @@ class MemTable {
 };
 
 struct LSMStoreState {
-    std::shared_mutex lock; // this is required since we can't guarantee lock-free access to the memtable
     LSMStoreState(): next_sstable_id{0} {};
     MemTable memtable_;
+    std::vector<MemTable> immutable_memtables_;
     std::map<size_t, SSTable> sstables_;
     size_t next_sstable_id;
 };
@@ -42,13 +42,14 @@ class LSMKVStore {
     public:
         LSMKVStore(const KVStoreConfig& config);
         std::optional<std::string> get(std::string k);
-        std::string put(std::string k, std::string v);
+        void put(std::string k, std::string v);
         void remove(std::string k);
         ~LSMKVStore();
     private:
         std::string directory_;
         KVStoreConfig config_;
         Channel<bool> flush_channel_;
-        std::shared_mutex state_lock_;
+        std::mutex state_lock_;
+        std::shared_mutex snapshot_lock_;
         std::shared_ptr<LSMStoreState> state_;
 };

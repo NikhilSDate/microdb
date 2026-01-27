@@ -20,16 +20,15 @@ public:
     // Default constructor
     File() = default;
 
-    // Delete copy operations
-    File(const File&) = delete;
-    File& operator=(const File&) = delete;
+    File(const File&);
+    File& operator=(const File);
 
     // Default move operations
-    File(File&&) = default;
-    File& operator=(File&&) = default;
+    File(File&&);
 
 private:
-    std::fstream f;
+    std::filesystem::path path_;
+    std::ifstream f_;
 };
 
 struct FileIndex {
@@ -75,8 +74,8 @@ public:
     SSTable() = default;
 
     // Delete copy operations
-    SSTable(const SSTable&) = delete;
-    SSTable& operator=(const SSTable&) = delete;
+    SSTable(const SSTable&) = default;
+    SSTable& operator=(const SSTable&) = default;
 
     // Default move operations
     SSTable(SSTable&&) = default;

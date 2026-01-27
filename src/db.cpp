@@ -49,9 +49,9 @@ LSMKVStore::LSMKVStore(const KVStoreConfig& config)
 
 std::optional<std::string> LSMKVStore::get(std::string k) {
     // take read lock and read snapshot
-    state_lock_.lock_shared();
+    snapshot_lock_.lock_shared();
     auto snapshot = state_;
-    state_lock_.unlock_shared();
+    snapshot_lock_.unlock_shared();
 
     auto result = snapshot->memtable_.get(k);
     if (!result.has_value()) {
@@ -72,17 +72,41 @@ std::optional<std::string> LSMKVStore::get(std::string k) {
     return result.value();
 }
 
-std::string LSMKVStore::put(std::string k, std::string v) {
-    memtable_[k] = v;
-    if (memtable_.size() > this->config_.memtable_threshold_) {
+void LSMKVStore::put(std::string k, std::string v) {
+    // need to take read lock on current snapshot
+    bool may_flush = false;
+
+    snapshot_lock_.lock_shared();
+    auto snapshot = state_;
+    snapshot->memtable_.put(k, v);
+    if (snapshot->memtable_.size_bytes() > config_.memtable_threshold_) {
+        may_flush = true;
+    }
+    snapshot_lock_.unlock_shared();
+
+    // fast path, may_flush is false (definitely no need to flush)
+    if (!may_flush) {
+        return;
+    }
+
+    // slow path, have to take global lock and check again whether to flush
+    state_lock_.lock();
+    snapshot_lock_.lock();
+    auto state = *state_;
+    if (snapshot->memtable_.size_bytes() > this->config_.memtable_threshold_) {
         // need to flush memtable to SSTable
         // this should ideally happen asynchronously
+
+        
+
         auto sstable = SSTable::from_memtable(next_sstable_id, this->config_.directory_, this->memtable_);
         next_sstable_id++;
         this->sstables_.push_back(std::move(sstable));
         this->memtable_.clear();
     }
-    return v;
+
+    snapshot_lock_.unlock();
+    state_lock_.unlock();
 }
 
 void LSMKVStore::remove(std::string k) {
