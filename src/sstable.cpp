@@ -1,4 +1,5 @@
 #include "include/sstable.hpp"
+#include <MemTable.hpp>
 #include <assert.h>
 #include <cstring>
 #include <filesystem>
@@ -91,7 +92,7 @@ void File::read(std::span<std::byte> buf, size_t offset, size_t len) {
 // SSTable class implementation
 SSTable
 SSTable::from_memtable(size_t id, std::filesystem::path directory,
-                       const std::map<std::string, std::string> &memtable) {
+                       const MemTable& memtable) {
   SSTable sstable;
   sstable.id_ = id;
   auto filename = std::format("sstable-{0}.sst", id);

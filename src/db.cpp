@@ -9,59 +9,29 @@
 #include <ranges>
 #include <variant>
 
-MemTable::MemTable(const MemTable& other): MemTable(other.id_) {
-    std::shared_lock<std::shared_mutex> g{other.lock_};
-    this->memtable_ = other.memtable_;
-    this->size_ = other.size_;
-}
-
-MemTable::MemTable(MemTable&& other): MemTable(other.id_) {
-    std::swap(this->memtable_, other.memtable_);
-    std::swap(this->size_, other.size_);
-}
-
-MemTable& MemTable::operator=(MemTable other) {
-    std::swap(this->memtable_, other.memtable_);
-    std::swap(this->size_, other.size_);
-    return *this;
-}
-
-std::optional<std::string> MemTable::get(const std::string& k) {
-    std::shared_lock<std::shared_mutex> g{lock_};
-    if (memtable_.contains(k)) {
-        return memtable_.at(k);
+LSMStoreState LSMStoreState::open_dir(std::filesystem::path directory) {
+    LSMStoreState state;
+    for (auto const& entry: std::filesystem::directory_iterator(directory)) {
+        auto path = entry.path();
+        // assuming the database is being used correctly, path should be an SSTable
+        SSTable table = SSTable::from_file(path);
+        size_t id = table.id();
+        state.sstables_[id] = std::move(table);
+        state.next_table_id_ = std::max(state.next_table_id_, table.id() + 1);
     }
-    return std::nullopt;
-}
-
-void MemTable::put(const std::string& k, const std::string& v) {
-    std::unique_lock<std::shared_mutex> g{lock_};
-    if (memtable_.contains(k)) {
-        size_ = size_ + (v.size() - memtable_.at(k).size());
-    } else {
-        size_ = size_ + k.size() + v.size();
-    }
-    memtable_[k] = v;
+    return state;
 }
 
 LSMKVStore::LSMKVStore(const KVStoreConfig& config)
     : config_{config}{
-    state_ = std::make_shared<LSMStoreState>();
-
     if (std::filesystem::exists(config_.directory_)) {
         // read all SSTables
-        for (auto const& entry: std::filesystem::directory_iterator(config_.directory_)) {
-            auto path = entry.path();
-            // assuming the database is being used correctly, path should be an SSTable
-            SSTable table = SSTable::from_file(path);
-            size_t id = table.id();
-            state_->sstables_[id] = std::move(table);
-            state_->next_table_id_ = std::max(state_->next_table_id_, table.id() + 1);
-        }
+        state_ = std::make_shared<LSMStoreState>(LSMStoreState::open_dir(config_.directory_));
     } else {
         if (!std::filesystem::create_directories(config_.directory_)) {
             throw new std::runtime_error("Failed to create directory");
         }
+        state_ = std::make_shared<LSMStoreState>();
     }
 }
 
