@@ -47,8 +47,8 @@ public:
     size_t id() { return id_; };
     std::optional<std::string> get(const std::string& k);
     size_t size_bytes() { return size_; };
-    
-    const size_t id_;
-    const std::map<std::string, std::string> memtable_;
-    const size_t size_;
+
+    size_t id_;
+    std::map<std::string, std::string> memtable_;
+    size_t size_;
 };

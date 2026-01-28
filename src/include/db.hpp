@@ -52,4 +52,7 @@ class LSMKVStore {
         std::shared_mutex snapshot_lock_;
         std::shared_mutex state_lock_;
         std::shared_ptr<LSMStoreState> state_;
+    
+    friend void flush_thread_func(LSMKVStore& store);
 };
+

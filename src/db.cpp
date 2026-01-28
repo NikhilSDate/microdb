@@ -11,7 +11,32 @@
 #include <variant>
 
 void flush_thread_func(LSMKVStore& store) {
+    // block on channel and flush 
+    while (true) {
+        auto item = store.flush_channel_.receive();
+        if (item == Stop) {
+            break;
+        }
+        store.state_lock_.lock();
 
+        // prepare
+        store.snapshot_lock_.lock_shared();
+        auto snapshot = store.state_;
+        store.snapshot_lock_.unlock_shared();
+        auto memtable = snapshot->immutable_memtables_.at(-0);
+        auto sstable = SSTable::from_memtable(memtable.id(), store.config_.directory_, memtable);
+
+        // commit
+        store.snapshot_lock_.lock();
+        auto state = *store.state_;
+        state.immutable_memtables_.erase(state.immutable_memtables_.begin());
+        state.sstables_[sstable.id()] = std::move(sstable);
+        store.state_ = std::make_shared<LSMStoreState>(std::move(state));
+        store.snapshot_lock_.unlock();
+        
+        
+        store.state_lock_.unlock();
+    }
 }
 
 LSMStoreState LSMStoreState::open_dir(std::filesystem::path directory) {
