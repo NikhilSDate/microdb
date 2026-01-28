@@ -5,6 +5,7 @@
 // unbounded channel
 template <typename T>
 class Channel {
+    public:
         void send(T&& val);
         void send(const T& val);
         T receive();
