@@ -1,5 +1,4 @@
-#include "include/sstable.hpp"
-#include <MemTable.hpp>
+
 #include <assert.h>
 #include <cstring>
 #include <filesystem>
@@ -7,11 +6,15 @@
 #include <fstream>
 #include <iostream>
 #include <map>
+#include <memtable.hpp>
 #include <optional>
 #include <span>
 #include <stdexcept>
 #include <string>
 #include <utility>
+
+#include "sstable.hpp"
+#include "memtable.hpp"
 
 File File::create(std::filesystem::path path, const std::span<std::byte> data) {
   File file;
@@ -92,14 +95,14 @@ void File::read(std::span<std::byte> buf, size_t offset, size_t len) {
 // SSTable class implementation
 SSTable
 SSTable::from_memtable(size_t id, std::filesystem::path directory,
-                       const MemTable& memtable) {
+                       const MemTable<Immutable>& memtable) {
   SSTable sstable;
   sstable.id_ = id;
   auto filename = std::format("sstable-{0}.sst", id);
   std::filesystem::path file_path = directory.append(filename);
 
   std::vector<std::byte> file_contents;
-  for (auto const &[k, v] : memtable) {
+  for (auto const &[k, v] : memtable.memtable_) {
     for (auto const &c : k) {
       file_contents.push_back(static_cast<std::byte>(c));
     }
@@ -108,8 +111,8 @@ SSTable::from_memtable(size_t id, std::filesystem::path directory,
     }
   }
   size_t offsets_start = file_contents.size();
-  Offsets offsets = Offsets::from_memtable(memtable);
-  SparseIndex index = SparseIndex::from_memtable_and_offsets(memtable, offsets);
+  Offsets offsets = Offsets::from_memtable(memtable.memtable_);
+  SparseIndex index = SparseIndex::from_memtable_and_offsets(memtable.memtable_, offsets);
 
   auto encoded_offsets = offsets.to_raw();
   auto encoded_index = index.to_raw();

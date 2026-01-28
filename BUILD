@@ -5,8 +5,10 @@ cc_binary(
     srcs = [
         "src/main.cpp",
         "src/db.cpp",
+        "src/memtable.cpp",
         "src/sstable.cpp",
         "src/include/db.hpp",
+        "src/include/memtable.hpp",
         "src/include/sstable.hpp",
         "src/include/utils.hpp"
     ],

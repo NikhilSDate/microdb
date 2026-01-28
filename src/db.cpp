@@ -7,7 +7,12 @@
 #include <shared_mutex>
 #include <stdexcept>
 #include <ranges>
+#include <thread>
 #include <variant>
+
+void flush_thread_func(LSMKVStore& store) {
+
+}
 
 LSMStoreState LSMStoreState::open_dir(std::filesystem::path directory) {
     LSMStoreState state;
@@ -23,7 +28,7 @@ LSMStoreState LSMStoreState::open_dir(std::filesystem::path directory) {
 }
 
 LSMKVStore::LSMKVStore(const KVStoreConfig& config)
-    : config_{config}{
+    : config_{config}, flush_thead_{} {
     if (std::filesystem::exists(config_.directory_)) {
         // read all SSTables
         state_ = std::make_shared<LSMStoreState>(LSMStoreState::open_dir(config_.directory_));
@@ -33,6 +38,9 @@ LSMKVStore::LSMKVStore(const KVStoreConfig& config)
         }
         state_ = std::make_shared<LSMStoreState>();
     }
+
+    // launch flush thread
+    flush_thead_ = std::jthread(flush_thread_func, *this);
 }
 
 std::optional<std::string> LSMKVStore::get(std::string k) {
@@ -93,24 +101,24 @@ void LSMKVStore::put(std::string k, std::string v) {
     auto slowpath_snapshot = state_;
     snapshot_lock_.unlock_shared();
 
-    // currently this two0-part locking doesnt serve much of a purpose, but would be needed if we wanted to 
+    // currently this two-part locking doesnt serve much of a purpose, but would be needed if we wanted to 
     // create a WAL for the memtable, which might be slow
     // this locking approach allows us to create the MemTable (and WAL) outside the lock
     // though perhaps it's better to create a placeholder memtable and put in the ID laterx`
 
     if (slowpath_snapshot->memtable_.size_bytes() > this->config_.memtable_threshold_) {
-        auto memtable = MemTable(slowpath_snapshot->next_table_id());
+        auto memtable = MemTable<Mutable>(slowpath_snapshot->next_table_id());
 
         // the entire read-modify-write on the state is done under the exclusive lock
         // to prevent modifications to the memtable in between the read and write
         snapshot_lock_.lock();
         auto state = *state_; // it should technically be safe to deference slowpath_snapshot here
-        state.immutable_memtables_.push_back(state.memtable_);
+        state.immutable_memtables_.push_back(state.memtable_.freeze()); // technically this involves a lock but it will be unlocked
         state.memtable_ = std::move(memtable);
         state_ = std::make_shared<LSMStoreState>(std::move(state));
         snapshot_lock_.unlock();
 
-        flush_channel_.send(std::monostate());        
+        flush_channel_.send(Flush);        
     }
 
     state_lock_.unlock();
@@ -124,5 +132,5 @@ void LSMKVStore::remove(std::string k) {
 LSMKVStore::~LSMKVStore() {
     // this will create the file, and then close it automatically when the SSTable goes out of scope
     // no need for locks here, since this should never execute in a multithreaded context
-    auto _ = SSTable::from_memtable(state_->memtable_.id(), this->config_.directory_, state_->memtable_);
+    auto _ = SSTable::from_memtable(state_->memtable_.id(), this->config_.directory_, state_->memtable_.freeze());
 }

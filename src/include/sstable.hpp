@@ -68,7 +68,7 @@ class SSTable {
 public:
     std::optional<std::string> get(std::string k);
     size_t id() const { return id_; }
-    static SSTable from_memtable(size_t id, std::filesystem::path directory, const MemTable& memtable);
+    static SSTable from_memtable(size_t id, std::filesystem::path directory, const MemTable<Immutable>& memtable);
     static SSTable from_file(std::filesystem::path filepath);
 
     // Default constructor

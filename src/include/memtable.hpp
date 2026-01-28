@@ -30,6 +30,8 @@ public:
     std::optional<std::string> get(const std::string& k);
     void put(const std::string& k, const std::string& v);
     size_t size_bytes() { return size_; };
+
+    MemTable<Immutable> freeze();
 private:
     size_t id_;
     mutable std::shared_mutex lock_;
@@ -37,15 +39,16 @@ private:
     size_t size_;
 };
 
+// this is just a record type
 template<>
 class MemTable<Immutable> {
 public:
-    MemTable() = delete;
+    MemTable(size_t id, std::map<std::string, std::string> memtable, size_t size);
     size_t id() { return id_; };
     std::optional<std::string> get(const std::string& k);
     size_t size_bytes() { return size_; };
-private:
-    size_t id_;
-    std::map<std::string, std::string> memtable_;
-    size_t size_;
+    
+    const size_t id_;
+    const std::map<std::string, std::string> memtable_;
+    const size_t size_;
 };
