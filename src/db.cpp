@@ -1,6 +1,5 @@
 #include "include/db.hpp"
 #include <filesystem>
-#include <mutex>
 #include <print>
 #include <memory>
 #include <optional>
@@ -8,7 +7,6 @@
 #include <stdexcept>
 #include <ranges>
 #include <thread>
-#include <variant>
 
 void flush_thread_func(LSMKVStore& store) {
     // block on channel and flush 
@@ -65,7 +63,7 @@ LSMKVStore::LSMKVStore(const KVStoreConfig& config)
     }
 
     // launch flush thread
-    flush_thead_ = std::jthread(flush_thread_func, *this);
+    flush_thead_ = std::jthread([&]{ flush_thread_func(*this); }, *this);
 }
 
 std::optional<std::string> LSMKVStore::get(std::string k) {
@@ -155,7 +153,6 @@ void LSMKVStore::remove(std::string k) {
 }
 
 LSMKVStore::~LSMKVStore() {
-    // this will create the file, and then close it automatically when the SSTable goes out of scope
-    // no need for locks here, since this should never execute in a multithreaded context
+    flush_channel_.send(Stop);
     auto _ = SSTable::from_memtable(state_->memtable_.id(), this->config_.directory_, state_->memtable_.freeze());
 }
