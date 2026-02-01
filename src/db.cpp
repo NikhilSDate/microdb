@@ -63,7 +63,7 @@ LSMKVStore::LSMKVStore(const KVStoreConfig& config)
     }
 
     // launch flush thread
-    flush_thead_ = std::jthread([&]{ flush_thread_func(*this); }, *this);
+    flush_thead_ = std::jthread([&]{ flush_thread_func(*this); });
 }
 
 std::optional<std::string> LSMKVStore::get(std::string k) {

@@ -1,4 +1,5 @@
 load("@rules_cc//cc:defs.bzl", "cc_binary", "cc_test")
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
 cc_binary(
     name = "main",
@@ -16,14 +17,14 @@ cc_binary(
 )
 
 cc_test(
-    name = "sstable_test",
+    name = "test",
     srcs = [
-        "src/sstable_test.cpp",
+        "src/test.cpp",
         "src/sstable.cpp",
+        "src/memtable.cpp",
         "src/include/sstable.hpp",
+        "src/include/memtable.hpp",
     ],
     includes = ["src/include"],
-    deps = [
-        "@catch2//:catch2_main",
-    ],
+    deps = ["@catch2//:catch2"]
 )
