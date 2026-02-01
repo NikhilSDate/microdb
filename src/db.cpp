@@ -154,5 +154,7 @@ void LSMKVStore::remove(std::string k) {
 
 LSMKVStore::~LSMKVStore() {
     flush_channel_.send(Stop);
-    auto _ = SSTable::from_memtable(state_->memtable_.id(), this->config_.directory_, state_->memtable_.freeze());
+    if (state_->memtable_.size_bytes() > 0) {
+        auto _ = SSTable::from_memtable(state_->memtable_.id(), this->config_.directory_, state_->memtable_.freeze());
+    }
 }

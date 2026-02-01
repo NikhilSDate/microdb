@@ -10,3 +10,5 @@ build --cxxopt=-Wall
 build --cxxopt=-Wextra
 
 build --repo_env=CC=clang
+# Use system Python to avoid "Lorem ipsum.txt" space-in-filename issue
+build:compile_commands --extra_toolchains=@bazel_tools//tools/python:autodetecting_toolchain

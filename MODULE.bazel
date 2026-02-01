@@ -3,11 +3,12 @@ module(
     version = "0.1.0",
 )
 
-bazel_dep(name = "rules_cc", version = "0.0.9")
-bazel_dep(name = "catch2", version = "3.12.0")
+bazel_dep(name = "rules_cc", version = "0.2.16")
+bazel_dep(name = "googletest", version = "1.17.0")
+
 bazel_dep(name = "hedron_compile_commands", dev_dependency = True)
 git_override(
     module_name = "hedron_compile_commands",
-    remote = "https://github.com/eugeneo/bazel-compile-commands-extractor.git",
-    commit = "844279a911d0a0adca480b299799f03f65290cce",
+    remote = "https://github.com/xFile3160/bazel-compile-commands-extractor.git",
+    commit = "7fe1eab26d2b8eeb5e1c6a2f38bddb001e3f9696",
 )

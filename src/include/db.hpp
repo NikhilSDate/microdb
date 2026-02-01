@@ -17,10 +17,10 @@ enum FlushMessage {
 
 struct KVStoreConfig {
     size_t memtable_threshold_;
-    std::string directory_;
+    std::filesystem::path directory_;
 
     KVStoreConfig() = delete;
-    KVStoreConfig(size_t memtable_threshold, std::string directory): memtable_threshold_(memtable_threshold), directory_(directory) {
+    KVStoreConfig(size_t memtable_threshold, std::filesystem::path directory): memtable_threshold_(memtable_threshold), directory_(directory) {
 
     }
 };
