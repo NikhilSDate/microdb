@@ -17,22 +17,16 @@
 #include "memtable.hpp"
 
 File File::create(std::filesystem::path path, const std::span<std::byte> data) {
-  File file;
-  file.path_ = path;
-  file.f_.open(path);
-  if (!file.f_.is_open()) {
-    throw std::runtime_error("Failed to create file: " + path.string());
-  }
+  // first write data to the file
   std::fstream write_stream;
   write_stream.open(path);
-  // Write the data to the file
+  if (!write_stream.is_open()) {
+    throw std::runtime_error(std::format("Failed to create file {0} for writing", path.string()));
+  }
   write_stream.write(reinterpret_cast<const char *>(data.data()), data.size());
   write_stream.flush();
 
-  // Reset to beginning
-  file.f_.seekg(0);
-
-  return file;
+  return File::open(path);
 }
 
 File File::open(std::filesystem::path path) {

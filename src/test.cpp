@@ -29,10 +29,11 @@ class TestDir {
         const std::filesystem::path directory_;
 };
 
-TEST(FileTest, Placeholder) {
-    TestDir<Auto> dir("./test_db");
+TEST(Integration, DB_Create) {
+    TestDir<Manual> dir("./test_db");
     {
         KVStoreConfig config(100, dir.directory());
         LSMKVStore db(config);
+        db.put("test", "test");
     }
 }
