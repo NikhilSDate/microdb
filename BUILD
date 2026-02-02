@@ -25,6 +25,8 @@ cc_test(
         "src/include/memtable.hpp",
         "src/include/sstable.hpp",
         "src/include/utils.hpp",
+        "src/include/logging.hpp",
+        "src/logging.cpp",
         "src/memtable.cpp",
         "src/sstable.cpp",
         "src/test.cpp",
