@@ -5,7 +5,7 @@
 
 
 namespace logging {
-    constexpr bool enable = true;
+    constexpr bool enable = false;
 
     void log(const std::string& message);
 }

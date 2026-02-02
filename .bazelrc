@@ -1,14 +1,28 @@
-# Use Bzlmod (required for BCR)
 common --enable_bzlmod
 
-# C++ standard
+build --action_env=CC=clang
+build --action_env=CXX=clang++
+
 build --cxxopt=-std=c++23
 build --host_cxxopt=-std=c++23
 
-# Compiler settings
 build --cxxopt=-Wall
 build --cxxopt=-Wextra
 
-build --repo_env=CC=clang
 # Use system Python to avoid "Lorem ipsum.txt" space-in-filename issue
 build:compile_commands --extra_toolchains=@bazel_tools//tools/python:autodetecting_toolchain
+
+build:asan --strip=never
+build:asan --cxxopt -fsanitize=address
+build:asan --cxxopt -O1
+build:asan --cxxopt -fno-omit-frame-pointer
+build:asan --cxxopt -g
+build:asan --linkopt -fsanitize=address
+build:asan --linkopt -fuse-ld=bfd
+
+build:tsan --strip=never
+build:tsan --cxxopt -fsanitize=thread
+build:tsan --cxxopt -O1
+build:tsan --cxxopt -fno-omit-frame-pointer
+build:asan --cxxopt -g
+build:tsan --linkopt -fsanitize=thread
