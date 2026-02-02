@@ -1,5 +1,6 @@
 #include "include/db.hpp"
 #include "logging.hpp"
+#include <cmath>
 #include <filesystem>
 #include <print>
 #include <memory>
@@ -18,7 +19,7 @@ void flush_thread_func(LSMKVStore& store) {
             break;
         }
 
-        std::cout << "flushing" << std::endl;
+        logging::log("flushing");
 
         store.state_lock_.lock();
 
@@ -150,13 +151,13 @@ void LSMKVStore::put(std::string k, std::string v) {
     if (slowpath_snapshot->memtable_.size_bytes() > this->config_.memtable_threshold_) {
 
         auto memtable = MemTable<Mutable>(slowpath_snapshot->next_table_id());
-
         // the entire read-modify-write on the state is done under the exclusive lock
         // to prevent modifications to the memtable in between the read and write
         snapshot_lock_.lock();
         auto state = *state_; // it should technically be safe to deference slowpath_snapshot here
         state.immutable_memtables_.push_back(state.memtable_.freeze()); // technically this involves a lock but it will be unlocked
         state.memtable_ = std::move(memtable);
+        logging::log(std::format("Memtable ID: {0}", memtable.id()));
         state_ = std::make_shared<LSMStoreState>(std::move(state));
         snapshot_lock_.unlock();
 

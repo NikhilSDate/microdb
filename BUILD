@@ -9,6 +9,7 @@ cc_binary(
         "src/include/sstable.hpp",
         "src/include/utils.hpp",
         "src/include/logging.hpp",
+        "src/logging.cpp",
         "src/main.cpp",
         "src/memtable.cpp",
         "src/sstable.cpp",

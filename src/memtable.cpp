@@ -18,6 +18,7 @@ MemTable<Mutable>::MemTable(MemTable&& other): MemTable(other.id_) {
 MemTable<Mutable>& MemTable<Mutable>::operator=(MemTable other) {
     std::swap(this->memtable_, other.memtable_);
     std::swap(this->size_, other.size_);
+    std::swap(this->id_, other.id_);
     return *this;
 }
 

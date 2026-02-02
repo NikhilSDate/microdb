@@ -16,7 +16,7 @@ int main() {
     // Phase 1: Write values to the database
     std::println("=== Phase 1: Writing values ===");
     {
-        KVStoreConfig config(10, db_path);
+        KVStoreConfig config(512, db_path);
         LSMKVStore db(config);
 
         for (size_t i = 0; i < 50; i++) {

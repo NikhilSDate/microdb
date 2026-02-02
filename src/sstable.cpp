@@ -5,6 +5,7 @@
 #include <format>
 #include <fstream>
 #include <iostream>
+#include <logging.hpp>
 #include <map>
 #include <memtable.hpp>
 #include <optional>
@@ -19,7 +20,7 @@
 File File::create(std::filesystem::path path, const std::span<std::byte> data) {
   // first write data to the file
   std::fstream write_stream;
-  write_stream.open(path, std::ios::in | std::ios::out);
+  write_stream.open(path, std::ios::out | std::ios::trunc);
   if (!write_stream.is_open()) {
     throw std::runtime_error(std::format("Failed to create file {0} for writing", path.string()));
   }
@@ -32,7 +33,7 @@ File File::create(std::filesystem::path path, const std::span<std::byte> data) {
 File File::open(std::filesystem::path path) {
   File file;
   file.path_ = path;
-  file.f_.open(path, std::ios::in | std::ios::binary);
+  file.f_.open(path, std::ios::in);
   if (!file.f_.is_open()) {
     throw std::runtime_error("Failed to open file: " + path.string());
   }
@@ -90,6 +91,7 @@ void File::read(std::span<std::byte> buf, size_t offset, size_t len) {
 SSTable
 SSTable::from_memtable(size_t id, std::filesystem::path directory,
                        const MemTable<Immutable>& memtable) {
+  logging::log(std::format("Creating SSTable with id {0}", id));
   SSTable sstable;
   sstable.id_ = id;
   auto filename = std::format("sstable-{0}.sst", id);
