@@ -1,4 +1,5 @@
 #include "include/db.hpp"
+#include "logging.hpp"
 #include <filesystem>
 #include <print>
 #include <memory>
@@ -7,6 +8,7 @@
 #include <stdexcept>
 #include <ranges>
 #include <thread>
+#include <iostream>
 
 void flush_thread_func(LSMKVStore& store) {
     // block on channel and flush 
@@ -15,19 +17,22 @@ void flush_thread_func(LSMKVStore& store) {
         if (item == Stop) {
             break;
         }
+
+        std::cout << "flushing" << std::endl;
+
         store.state_lock_.lock();
 
         // prepare
         store.snapshot_lock_.lock_shared();
         auto snapshot = store.state_;
         store.snapshot_lock_.unlock_shared();
-        auto memtable = snapshot->immutable_memtables_.at(-0);
+        auto memtable = snapshot->immutable_memtables_.front();
         auto sstable = SSTable::from_memtable(memtable.id(), store.config_.directory_, memtable);
 
         // commit
         store.snapshot_lock_.lock();
         auto state = *store.state_;
-        state.immutable_memtables_.erase(state.immutable_memtables_.begin());
+        state.immutable_memtables_.pop_front();
         state.sstables_[sstable.id()] = std::move(sstable);
         store.state_ = std::make_shared<LSMStoreState>(std::move(state));
         store.snapshot_lock_.unlock();
@@ -73,22 +78,35 @@ std::optional<std::string> LSMKVStore::get(std::string k) {
     snapshot_lock_.unlock_shared();
 
     auto result = snapshot->memtable_.get(k);
-    if (!result.has_value()) {
-        // search SSTables
-        // iterate in reverse to get more recent tables first
-        for (auto& [_, sstable]: snapshot->sstables_ | std::views::reverse) {
-            auto res = sstable.get(k);
-            // tombstone is 0-length value
-            if (res.has_value() && res.value().length() > 0) {
-                return res;
-            }
+    if (result.has_value()) {
+        if (result.value().length() == 0) {
+            return std::nullopt;
         }
-        return std::nullopt;
+        return result.value();
     }
-    if (result.value().length() == 0) {
-        return std::nullopt;
+
+    // search immutable memtables
+    for (auto& memtable: snapshot->immutable_memtables_ | std::views::reverse) {
+        auto result = memtable.get(k);
+        if (result.has_value()) {
+            if (result.value().length() == 0) {
+                return std::nullopt;
+            }
+            return result.value();
+        }
     }
-    return result.value();
+
+    // search SSTables
+    // iterate in reverse to get more recent tables first
+    for (auto& [_, sstable]: snapshot->sstables_ | std::views::reverse) {
+        auto res = sstable.get(k);
+        // tombstone is 0-length value
+        if (res.has_value() && res.value().length() > 0) {
+            return res;
+        }
+    }
+    return std::nullopt;
+
 }
 
 void LSMKVStore::put(std::string k, std::string v) {
@@ -130,6 +148,7 @@ void LSMKVStore::put(std::string k, std::string v) {
     // though perhaps it's better to create a placeholder memtable and put in the ID laterx`
 
     if (slowpath_snapshot->memtable_.size_bytes() > this->config_.memtable_threshold_) {
+
         auto memtable = MemTable<Mutable>(slowpath_snapshot->next_table_id());
 
         // the entire read-modify-write on the state is done under the exclusive lock

@@ -19,7 +19,7 @@
 File File::create(std::filesystem::path path, const std::span<std::byte> data) {
   // first write data to the file
   std::fstream write_stream;
-  write_stream.open(path);
+  write_stream.open(path, std::ios::in | std::ios::out);
   if (!write_stream.is_open()) {
     throw std::runtime_error(std::format("Failed to create file {0} for writing", path.string()));
   }

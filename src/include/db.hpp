@@ -1,3 +1,4 @@
+#include <queue>
 #include <shared_mutex>
 #include <string>
 #include <optional>
@@ -31,7 +32,7 @@ struct LSMStoreState {
         static LSMStoreState open_dir(std::filesystem::path directory);
         size_t next_table_id() {return next_table_id_++; };
         MemTable<Mutable> memtable_;
-        std::vector<MemTable<Immutable>> immutable_memtables_;
+        std::deque<MemTable<Immutable>> immutable_memtables_;
         std::map<size_t, SSTable> sstables_;
     private:
         size_t next_table_id_;
