@@ -1,6 +1,7 @@
 #include "include/db.hpp"
 #include <filesystem>
 #include <gtest/gtest.h>
+#include <optional>
 #include <stdexcept>
 
 enum Cleanup {
@@ -37,7 +38,7 @@ TEST(DB, DB_Create) {
     }
 }
 
-TEST(DB, Write_and_Read) {
+TEST(DB, TEST_GET_AND_PUT) {
     TestDir<Auto> dir("./test");
     {
         constexpr int keys = 50;
@@ -74,5 +75,35 @@ TEST(DB, Write_and_Read) {
             ASSERT_EQ(not_found, 0);
             ASSERT_EQ(found, keys);
         }
+    }
+}
+
+TEST(DB, TEST_DELETE) {
+    TestDir<Auto> dir("./test");
+    auto key = [](size_t i) {return std::format("key{:03d}", i); };
+    auto val = [](size_t i) {return std::format("value{:03d}", i); };
+    constexpr int keys = 50;
+    std::map<std::string, std::string> ground_truth;
+    {
+        KVStoreConfig config(512, dir.directory().append("db"));
+        {
+            LSMKVStore db(config);
+            for (size_t i = 0; i < keys; i++) {
+                db.put(key(i), val(i));
+                ground_truth[key(i)] = val(i);
+            }
+            for (size_t i = 0; i < keys; i+=10) {
+                db.remove(key(i));
+                ground_truth.erase(key(i));
+            }
+        }
+        {
+            LSMKVStore db(config);
+            for (size_t i = 0; i < keys; i++) {
+                auto v = db.get(key(i));
+                auto gt = ground_truth.contains(key(i)) ? std::make_optional(ground_truth.at(key(i))) : std::nullopt;
+                ASSERT_EQ(v, gt);
+            }
+        }  
     }
 }
