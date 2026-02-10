@@ -12,6 +12,10 @@ build --cxxopt=-Wextra
 # Use system Python to avoid "Lorem ipsum.txt" space-in-filename issue
 build:compile_commands --extra_toolchains=@bazel_tools//tools/python:autodetecting_toolchain
 
+build:debug --strip=never
+build:debug --cxxopt -O1
+build:debug --cxxopt -g
+
 build:asan --strip=never
 build:asan --cxxopt -fsanitize=address
 build:asan --cxxopt -O1

@@ -30,8 +30,10 @@ class TestDir {
         const std::filesystem::path directory_;
 };
 
-TEST(DB, DB_Create) {
-    TestDir<Auto> dir("./test");
+TEST(DB, TEST_CREATE) {
+    auto name = ::testing::UnitTest::GetInstance()->current_test_info()->name();
+    auto path = std::filesystem::path("./test").append(name);
+    TestDir<Auto> dir(path);
     {
         KVStoreConfig config(100, dir.directory().append("db"));
         LSMKVStore db(config);
@@ -39,7 +41,9 @@ TEST(DB, DB_Create) {
 }
 
 TEST(DB, TEST_GET_AND_PUT) {
-    TestDir<Auto> dir("./test");
+    auto name = ::testing::UnitTest::GetInstance()->current_test_info()->name();
+    auto path = std::filesystem::path("./test").append(name);
+    TestDir<Auto> dir(path);
     {
         constexpr int keys = 50;
         KVStoreConfig config(512, dir.directory().append("db"));
@@ -79,21 +83,24 @@ TEST(DB, TEST_GET_AND_PUT) {
 }
 
 TEST(DB, TEST_DELETE) {
-    TestDir<Auto> dir("./test");
+    auto name = ::testing::UnitTest::GetInstance()->current_test_info()->name();
+    auto path = std::filesystem::path("./test").append(name);
+    TestDir<Manual> dir(path);
     auto key = [](size_t i) {return std::format("key{:03d}", i); };
     auto val = [](size_t i) {return std::format("value{:03d}", i); };
     constexpr int keys = 50;
     std::map<std::string, std::string> ground_truth;
     {
-        KVStoreConfig config(512, dir.directory().append("db"));
+        KVStoreConfig config(512, dir.directory());
         {
             LSMKVStore db(config);
             for (size_t i = 0; i < keys; i++) {
                 db.put(key(i), val(i));
                 ground_truth[key(i)] = val(i);
             }
-            for (size_t i = 0; i < keys; i+=10) {
+            for (size_t i = 0; i < keys; i += 10) {
                 db.remove(key(i));
+                ASSERT_EQ(db.get(key(i)), std::nullopt);
                 ground_truth.erase(key(i));
             }
         }
