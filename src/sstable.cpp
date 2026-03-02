@@ -164,7 +164,7 @@ std::optional<std::string> SSTable::get(std::string key) {
   auto search_range = sparse_index_.lookup_key(key);
   auto start_index = search_range.first;
   auto start_offset = offsets_.at(start_index).first;
-  auto end_index = search_range.second.value_or(offsets_.num_entries());
+  auto end_index = search_range.second;
   auto end_offset = search_range.second
                         .and_then([&](auto idx) {
                           return std::make_optional(offsets_.at(idx).first);
@@ -186,7 +186,7 @@ std::optional<std::string> SSTable::get(std::string key) {
         reinterpret_cast<const char *>(bytes.data()) + key_offset, key_len);
     auto v = std::string(
         reinterpret_cast<const char *>(bytes.data()) + value_offset, value_len);
-
+      
     if (key == k) {
       return std::make_optional(v);
     }
@@ -319,11 +319,11 @@ SparseIndex SparseIndex::from_memtable_and_offsets(
   return index;
 }
 
-std::pair<std::size_t, std::optional<std::size_t>>
+std::pair<size_t, size_t>
 SparseIndex::lookup_key(std::string key) const {
   auto it = index_.upper_bound(key);
   auto end_index =
-      it == index_.end() ? std::nullopt : std::make_optional(it->second);
+      it == index_.end() ? this->num_entries_ : it->second;
   size_t start_index = 0;
   if (it != index_.begin()) {
     --it;

@@ -59,9 +59,10 @@ class SparseIndex {
         static SparseIndex from_raw(std::span<std::byte> raw);
         static SparseIndex from_memtable_and_offsets(const std::map<std::string, std::string>& memtable, const Offsets& offsets);         
         std::vector<std::byte> to_raw() const;
-        std::pair<std::size_t, std::optional<std::size_t>> lookup_key(std::string key) const;
+        std::pair<size_t, size_t> lookup_key(std::string key) const;
     private:
         std::map<std::string, size_t> index_; // this stores mappings from key to index within the file
+        size_t num_entries_;
     };
 
 class SSTable {
