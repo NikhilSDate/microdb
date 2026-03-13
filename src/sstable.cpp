@@ -155,6 +155,7 @@ SSTable SSTable::from_file(std::filesystem::path filepath) {
   std::vector<std::byte> index_bytes(index_size);
   sstable.file.read(index_bytes, sstable.file_index_.index_start_, index_size);
   sstable.sparse_index_ = SparseIndex::from_raw(index_bytes);
+  sstable.sparse_index_.set_num_entries(sstable.offsets_.num_entries());
 
   return sstable;
 }
@@ -165,11 +166,9 @@ std::optional<std::string> SSTable::get(std::string key) {
   auto start_index = search_range.first;
   auto start_offset = offsets_.at(start_index).first;
   auto end_index = search_range.second;
-  auto end_offset = search_range.second
-                        .and_then([&](auto idx) {
-                          return std::make_optional(offsets_.at(idx).first);
-                        })
-                        .value_or(file_index_.offsets_start_);
+  auto end_offset = (end_index >= offsets_.num_entries())
+                        ? file_index_.offsets_start_
+                        : offsets_.at(end_index).first;
   std::vector<std::byte> bytes(end_offset - start_offset, std::byte(0));
   file.read(bytes, start_offset, end_offset - start_offset);
   // now scan this block to look for the key
@@ -316,6 +315,7 @@ SparseIndex SparseIndex::from_memtable_and_offsets(
     }
     idx += 1;
   }
+  index.set_num_entries(memtable.size());
   return index;
 }
 

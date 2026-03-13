@@ -85,7 +85,7 @@ TEST(DB, TEST_GET_AND_PUT) {
 TEST(DB, TEST_DELETE) {
     auto name = ::testing::UnitTest::GetInstance()->current_test_info()->name();
     auto path = std::filesystem::path("./test").append(name);
-    TestDir<Manual> dir(path);
+    TestDir<Auto> dir(path);
     auto key = [](size_t i) {return std::format("key{:03d}", i); };
     auto val = [](size_t i) {return std::format("value{:03d}", i); };
     constexpr int keys = 50;

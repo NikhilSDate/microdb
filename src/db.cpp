@@ -101,8 +101,11 @@ std::optional<std::string> LSMKVStore::get(std::string k) {
     // iterate in reverse to get more recent tables first
     for (auto& [_, sstable]: snapshot->sstables_ | std::views::reverse) {
         auto res = sstable.get(k);
-        // tombstone is 0-length value
-        if (res.has_value() && res.value().length() > 0) {
+        if (res.has_value()) {
+            // tombstone is 0-length value
+            if (res.value().length() == 0) {
+                return std::nullopt;
+            }
             return res;
         }
     }
