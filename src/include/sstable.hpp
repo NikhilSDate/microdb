@@ -10,6 +10,13 @@
 // file format
 // [<key><value><key><value>....][sparse index][offsets: k0v0k1v1...][start of sparse index, start of offsets]
 
+// new file format
+// [B0, B1, B2, B3, ..., B_{N - 1}]
+// block size = 1 page (4KB)
+// key len, value len are 4B
+// each block can store 512 keylen/valuelen pairs
+// B_{N - 1} is metadata block containing # of data blocks and 
+
 class File {
 public:
     static File create(std::filesystem::path, const std::span<std::byte> data);
