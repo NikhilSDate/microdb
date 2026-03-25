@@ -1,21 +1,30 @@
+#pragma once
+
+#include <cstdint>
 #include <fstream>
-#include <string>
-#include <optional>
-#include <map>
-#include <vector>
 #include <filesystem>
+#include <optional>
+#include <span>
+#include <string>
+#include <vector>
 #include "memtable.hpp"
 
-
-// file format
-// [<key><value><key><value>....][sparse index][offsets: k0v0k1v1...][start of sparse index, start of offsets]
+const size_t BLOCK_SIZE = 4096; // block size = page size
 
 // new file format
 // [B0, B1, B2, B3, ..., B_{N - 1}]
 // block size = 1 page (4KB)
 // key len, value len are 4B
-// each block can store 512 keylen/valuelen pairs
-// B_{N - 1} is metadata block containing # of data blocks and 
+
+// data block format
+// keylen (4 bytes) key valuelen (4 bytes) value
+
+// metadata format (flat, after data blocks)
+// keylen (4 bytes) key keylen (4 bytes) key
+// one entry per data block: the first key stored in that block
+
+// file index format (at end of file)
+// block size (2 bytes), num blocks (4 bytes), id (8 bytes)
 
 class File {
 public:
@@ -25,13 +34,9 @@ public:
     void read(std::span<std::byte> buf, size_t offset, size_t len);
     size_t size() const;
 
-    // Default constructor
     File() = default;
-
     File(const File&);
     File& operator=(const File);
-
-    // Default move operations
     File(File&&);
 
 private:
@@ -39,39 +44,48 @@ private:
     std::ifstream f_;
 };
 
-struct FileIndex {
+// represents a disk block loaded into memory
+class Block {
+public:
+    static Block from_raw(std::span<std::byte> raw);
+    std::optional<std::string> get(const std::string& key) const;
+private:
+    std::vector<std::byte> data_;
+    std::vector<uint32_t> offsets_;
+};
 
+class BlockBuilder {
+public:
+    // Returns false if the entry does not fit (block is full).
+    bool push(const std::string& key, const std::string& value);
+    std::vector<std::byte> build();
+    bool empty() const { return data_.empty(); }
+private:
+    std::vector<std::byte> data_;
+};
+
+// sparse index: stores the first key of each data block
+class Metadata {
+public:
+    static Metadata from_raw(std::span<std::byte> raw);
+    std::vector<std::byte> to_raw() const;
+    size_t lookup_block(const std::string& key) const;
+    void add_first_key(const std::string& key) { first_keys_.push_back(key); }
+    size_t num_blocks() const { return first_keys_.size(); }
+private:
+    std::vector<std::string> first_keys_;
+};
+
+struct FileIndex {
     static FileIndex from_raw(std::span<std::byte> raw);
     std::vector<std::byte> to_raw() const;
 
-    size_t index_start_;
-    size_t offsets_start_;
-    size_t id_;
-};
+    static constexpr size_t SIZE = sizeof(uint16_t) + sizeof(uint32_t) + sizeof(size_t);
 
-class Offsets {
-    public:
-        static Offsets from_raw(std::span<std::byte> raw);
-        static Offsets from_memtable(const std::map<std::string, std::string>& memtable);
-        std::vector<std::byte> to_raw() const;
-        std::pair<size_t, size_t> at(size_t idx) const; 
-        size_t num_entries() const { return key_offsets_.size(); };
-    private:
-        std::vector<size_t> key_offsets_;
-        std::vector<size_t> value_offsets_;
+    uint16_t block_size;
+    uint32_t num_blocks;
+    size_t id;
 };
-
-class SparseIndex {
-    public:
-        static SparseIndex from_raw(std::span<std::byte> raw);
-        static SparseIndex from_memtable_and_offsets(const std::map<std::string, std::string>& memtable, const Offsets& offsets);         
-        std::vector<std::byte> to_raw() const;
-        std::pair<size_t, size_t> lookup_key(std::string key) const;
-        void set_num_entries(size_t n) { num_entries_ = n; }
-    private:
-        std::map<std::string, size_t> index_; // this stores mappings from key to index within the file
-        size_t num_entries_ = 0;
-    };
 
 class SSTable {
 public:
@@ -80,21 +94,15 @@ public:
     static SSTable from_memtable(size_t id, std::filesystem::path directory, const MemTable<Immutable>& memtable);
     static SSTable from_file(std::filesystem::path filepath);
 
-    // Default constructor
     SSTable() = default;
-
-    // Delete copy operations
     SSTable(const SSTable&) = default;
     SSTable& operator=(const SSTable&) = default;
-
-    // Default move operations
     SSTable(SSTable&&) = default;
     SSTable& operator=(SSTable&&) = default;
 
 private:
-    size_t id_;
-    File file;
-    FileIndex file_index_;
-    SparseIndex sparse_index_;
-    Offsets offsets_;
+    size_t id_ = 0;
+    File file_;
+    FileIndex file_index_{};
+    Metadata metadata_;
 };
