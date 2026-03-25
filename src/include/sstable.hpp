@@ -11,7 +11,7 @@
 
 const size_t BLOCK_SIZE = 4096; // block size = page size
 
-// new file format
+// file format
 // [B0, B1, B2, B3, ..., B_{N - 1}]
 // block size = 1 page (4KB)
 // key len, value len are 4B
