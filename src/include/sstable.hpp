@@ -1,15 +1,23 @@
 #pragma once
 
 #include <cstdint>
-#include <fstream>
 #include <filesystem>
+#include <memory>
 #include <optional>
 #include <span>
 #include <string>
+#include <string_view>
+#include <utility>
 #include <vector>
+#include "iterator.hpp"
 #include "memtable.hpp"
 
 const size_t BLOCK_SIZE = 4096; // block size = page size
+
+// on-disk size of a key/value entry: keylen(4) key vallen(4) value
+inline size_t entry_size(const std::string& key, const std::string& value) {
+    return 4 + key.size() + 4 + value.size();
+}
 
 // file format
 // [B0, B1, B2, B3, ..., B_{N - 1}]
@@ -31,17 +39,19 @@ public:
     static File create(std::filesystem::path, const std::span<std::byte> data);
     static File open(std::filesystem::path path);
 
-    void read(std::span<std::byte> buf, size_t offset, size_t len);
-    size_t size() const;
+    void read(std::span<std::byte> buf, size_t offset, size_t len) const;
+    size_t size() const { return size_; }
 
     File() = default;
     File(const File&);
-    File& operator=(const File);
+    File& operator=(File);
     File(File&&);
+    ~File();
 
 private:
     std::filesystem::path path_;
-    std::ifstream f_;
+    int fd_ = -1;
+    size_t size_ = 0;
 };
 
 // represents a disk block loaded into memory
@@ -49,9 +59,33 @@ class Block {
 public:
     static Block from_raw(std::span<std::byte> raw);
     std::optional<std::string> get(const std::string& key) const;
+
+    size_t num_entries() const { return offsets_.size(); }
+    std::pair<std::string, std::string> entry_at(size_t idx) const;
+    std::string_view key_at(size_t idx) const;
 private:
     std::vector<std::byte> data_;
     std::vector<uint32_t> offsets_;
+};
+
+class BlockIterator {
+public:
+    static BlockIterator seek_to_first(std::shared_ptr<const Block> block);
+    static BlockIterator seek_to_key(std::shared_ptr<const Block> block, const std::string& key);
+
+    bool is_valid() const { return idx_ < block_->num_entries(); }
+    const std::string& key() const { return key_; }
+    const std::string& value() const { return value_; }
+    void next();
+
+private:
+    BlockIterator(std::shared_ptr<const Block> block, size_t idx);
+    void load_current();
+
+    std::shared_ptr<const Block> block_;
+    size_t idx_;
+    std::string key_;
+    std::string value_;
 };
 
 class BlockBuilder {
@@ -80,11 +114,11 @@ struct FileIndex {
     static FileIndex from_raw(std::span<std::byte> raw);
     std::vector<std::byte> to_raw() const;
 
-    static constexpr size_t SIZE = sizeof(uint16_t) + sizeof(uint32_t) + sizeof(size_t);
+    static constexpr size_t SIZE = sizeof(uint16_t) + sizeof(uint32_t) + sizeof(uint64_t);
 
     uint16_t block_size;
     uint32_t num_blocks;
-    size_t id;
+    uint64_t id;
 };
 
 class SSTable {
@@ -93,6 +127,10 @@ public:
     size_t id() const { return id_; }
     static SSTable from_memtable(size_t id, std::filesystem::path directory, const MemTable<Immutable>& memtable);
     static SSTable from_file(std::filesystem::path filepath);
+
+    size_t num_blocks() const { return file_index_.num_blocks; }
+    size_t find_block(const std::string& key) const { return metadata_.lookup_block(key); }
+    std::shared_ptr<Block> load_block(size_t idx) const;
 
     SSTable() = default;
     SSTable(const SSTable&) = default;
@@ -105,4 +143,23 @@ private:
     File file_;
     FileIndex file_index_{};
     Metadata metadata_;
+};
+
+class SSTableIterator : public KVIterator {
+public:
+    static SSTableIterator seek_to_first(std::shared_ptr<SSTable> table);
+    static SSTableIterator seek_to_key(std::shared_ptr<SSTable> table, const std::string& key);
+
+    bool is_valid() const override { return block_iter_.has_value() && block_iter_->is_valid(); }
+    const std::string& key() const override { return block_iter_->key(); }
+    const std::string& value() const override { return block_iter_->value(); }
+    void next() override;
+
+private:
+    SSTableIterator(std::shared_ptr<SSTable> table, size_t block_idx, std::optional<BlockIterator> block_iter);
+    void advance_to_next_block();
+
+    std::shared_ptr<SSTable> table_;
+    size_t block_idx_;
+    std::optional<BlockIterator> block_iter_;
 };

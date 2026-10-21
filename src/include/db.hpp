@@ -1,3 +1,5 @@
+#include <deque>
+#include <memory>
 #include <queue>
 #include <shared_mutex>
 #include <string>
@@ -8,6 +10,7 @@
 #include <filesystem>
 #include "utils.hpp"
 
+#include "iterator.hpp"
 #include "memtable.hpp"
 #include "sstable.hpp"
 
@@ -28,13 +31,15 @@ struct KVStoreConfig {
 
 struct LSMStoreState {
     public:
-        LSMStoreState(): memtable_(0), next_table_id_{1} {};
+        static LSMStoreState fresh(std::filesystem::path directory);
         static LSMStoreState open_dir(std::filesystem::path directory);
         size_t next_table_id() {return next_table_id_++; };
         MemTable<Mutable> memtable_;
-        std::deque<MemTable<Immutable>> immutable_memtables_;
-        std::map<size_t, SSTable> sstables_;
+        std::deque<std::shared_ptr<MemTable<Immutable>>> immutable_memtables_;
+        std::map<size_t, std::shared_ptr<SSTable>> sstables_;
     private:
+        LSMStoreState(MemTable<Mutable> memtable, size_t next_table_id)
+            : memtable_(std::move(memtable)), next_table_id_(next_table_id) {}
         size_t next_table_id_;
 };
 
@@ -44,8 +49,12 @@ class LSMKVStore {
         std::optional<std::string> get(std::string k);
         void put(std::string k, std::string v);
         void remove(std::string k);
+        std::vector<std::pair<std::string, std::string>> scan(
+            std::optional<std::string> lower = std::nullopt, std::optional<std::string> upper = std::nullopt);
         ~LSMKVStore();
     private:
+        void put_internal(std::string k, std::string v);
+
         std::string directory_;
         KVStoreConfig config_;
         Channel<FlushMessage> flush_channel_;
